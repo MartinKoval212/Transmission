@@ -15,7 +15,6 @@ open class PresentationControllerTransition: ViewControllerTransition {
         animation: Animation?
     ) {
         super.init(isPresenting: isPresenting, animation: animation)
-        wantsInteractiveStart = true
     }
 
     open override func animatedStarted(

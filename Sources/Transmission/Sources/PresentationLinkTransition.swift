@@ -9,11 +9,9 @@ import EngineCore
 
 /// The transition and presentation style for a ``PresentationLink`` or ``PresentationLinkModifier``.
 @available(iOS 14.0, *)
-@MainActor @preconcurrency
 public struct PresentationLinkTransition: Sendable {
 
-    @MainActor @preconcurrency
-    enum Value: @unchecked Sendable {
+    enum Value: Sendable {
         case `default`(Options)
         case sheet(SheetTransitionOptions)
         case currentContext(Options)
@@ -92,6 +90,9 @@ extension PresentationLinkTransition {
         public var isDestinationReusable: Bool
         /// When `true`, the destination will be dismissed when the presentation source is dismantled
         public var shouldAutomaticallyDismissDestination: Bool
+        /// When `true`, the `isPresented` binding is updated when dismissal begins, allowing
+        /// for view updates alongside the transition.
+        public var shouldTransitionIsPresentedAlongsideTransition: Bool
         /// When `true`, the destination will be presented after dismissing the view the presentation source is already presenting.
         public var shouldAutomaticallyDismissPresentedView: Bool
         public var modalPresentationCapturesStatusBarAppearance: Bool
@@ -103,6 +104,7 @@ extension PresentationLinkTransition {
             isInteractive: Bool = true,
             isDestinationReusable: Bool = false,
             shouldAutomaticallyDismissDestination: Bool = true,
+            shouldTransitionIsPresentedAlongsideTransition: Bool = true,
             shouldAutomaticallyDismissPresentedView: Bool = true,
             modalPresentationCapturesStatusBarAppearance: Bool = false,
             preferredPresentationColorScheme: ColorScheme? = nil,
@@ -112,6 +114,7 @@ extension PresentationLinkTransition {
             self.isInteractive = isInteractive
             self.isDestinationReusable = isDestinationReusable
             self.shouldAutomaticallyDismissDestination = shouldAutomaticallyDismissDestination
+            self.shouldTransitionIsPresentedAlongsideTransition = shouldTransitionIsPresentedAlongsideTransition
             self.shouldAutomaticallyDismissPresentedView = shouldAutomaticallyDismissPresentedView
             self.modalPresentationCapturesStatusBarAppearance = modalPresentationCapturesStatusBarAppearance
             self.preferredPresentationColorScheme = preferredPresentationColorScheme
@@ -134,7 +137,6 @@ extension PresentationLinkTransition {
 extension PresentationLinkTransition {
     /// The transition options for a sheet transition.
     @frozen
-    @MainActor @preconcurrency
     public struct SheetTransitionOptions {
         /// The detent of the sheet transition
         @frozen
@@ -505,6 +507,7 @@ extension PresentationLinkTransition {
         public var widthFollowsPreferredContentSizeWhenEdgeAttached: Bool
         public var prefersPageSizing: Bool
         public var prefersZoomTransition: Bool
+        public var zoomTransitionOptions: ZoomTransitionOptions?
         public var hapticsStyle: UIImpactFeedbackGenerator.FeedbackStyle?
 
         public init(
@@ -520,6 +523,7 @@ extension PresentationLinkTransition {
             widthFollowsPreferredContentSizeWhenEdgeAttached: Bool = false,
             prefersPageSizing: Bool = false,
             prefersZoomTransition: Bool = false,
+            zoomTransitionOptions: ZoomTransitionOptions? = nil,
             hapticsStyle: UIImpactFeedbackGenerator.FeedbackStyle? = nil,
             options: Options = .init()
         ) {
@@ -539,7 +543,7 @@ extension PresentationLinkTransition {
                 if let preferredCornerRadius {
                     return preferredCornerRadius
                 }
-                return prefersZoomTransition ? .screen() : nil
+                return prefersZoomTransition ? MainActor.assumeIsolated({.screen()}) : nil
             }()
             self.prefersSourceViewAlignment = prefersSourceViewAlignment
             self.prefersScrollingExpandsWhenScrolledToEdge = prefersScrollingExpandsWhenScrolledToEdge
@@ -547,12 +551,12 @@ extension PresentationLinkTransition {
             self.widthFollowsPreferredContentSizeWhenEdgeAttached = widthFollowsPreferredContentSizeWhenEdgeAttached
             self.prefersPageSizing = prefersPageSizing
             self.prefersZoomTransition = prefersZoomTransition
+            self.zoomTransitionOptions = zoomTransitionOptions
             self.hapticsStyle = hapticsStyle
         }
     }
 
     @frozen
-    @MainActor @preconcurrency
     public struct PopoverTransitionOptions {
         public typealias PermittedArrowDirections = Edge.Set
 
@@ -603,22 +607,39 @@ extension PresentationLinkTransition {
 
     /// The transition options for a zoom transition.
     @frozen
-    @MainActor @preconcurrency
     public struct ZoomOptions {
         public var options: Options
-        public var dimmingColor: Color?
-        public var dimmingVisualEffect: UIBlurEffect.Style?
+        public var zoomTransitionOptions: ZoomTransitionOptions
         public var hapticsStyle: UIImpactFeedbackGenerator.FeedbackStyle?
+
+        public var dimmingColor: Color? {
+            get { zoomTransitionOptions.dimmingColor }
+            set { zoomTransitionOptions.dimmingColor = newValue }
+        }
+
+        public var dimmingVisualEffect: UIBlurEffect.Style? {
+            get { zoomTransitionOptions.dimmingVisualEffect }
+            set { zoomTransitionOptions.dimmingVisualEffect = newValue }
+        }
+
+        public var prefersScalePresentingView: Bool {
+            get { zoomTransitionOptions.prefersScalePresentingView }
+            set { zoomTransitionOptions.prefersScalePresentingView = newValue }
+        }
 
         public init(
             dimmingColor: Color? = nil,
             dimmingVisualEffect: UIBlurEffect.Style? = nil,
             hapticsStyle: UIImpactFeedbackGenerator.FeedbackStyle? = nil,
+            prefersScalePresentingView: Bool = true,
             options: Options = .init()
         ) {
             self.options = options
-            self.dimmingColor = dimmingColor
-            self.dimmingVisualEffect = dimmingVisualEffect
+            self.zoomTransitionOptions = ZoomTransitionOptions(
+                dimmingColor: dimmingColor,
+                dimmingVisualEffect: dimmingVisualEffect,
+                prefersScalePresentingView: prefersScalePresentingView
+            )
             self.hapticsStyle = hapticsStyle
         }
     }
@@ -672,6 +693,7 @@ extension PresentationLinkTransition {
         prefersGrabberVisible: Bool = false,
         preferredCornerRadius: CornerRadiusOptions.RoundedRectangle? = nil,
         prefersZoomTransition: Bool = false,
+        zoomTransitionOptions: ZoomTransitionOptions? = nil,
         hapticsStyle: UIImpactFeedbackGenerator.FeedbackStyle? = nil,
         isInteractive: Bool = true,
         preferredPresentationSafeAreaInsets: EdgeInsets? = nil,
@@ -684,6 +706,7 @@ extension PresentationLinkTransition {
                     prefersGrabberVisible: prefersGrabberVisible,
                     preferredCornerRadius: preferredCornerRadius,
                     prefersZoomTransition: prefersZoomTransition,
+                    zoomTransitionOptions: zoomTransitionOptions,
                     hapticsStyle: hapticsStyle,
                     options: .init(
                         isInteractive: isInteractive,
@@ -814,6 +837,7 @@ extension PresentationLinkTransition {
     public static func zoom(
         dimmingColor: Color? = nil,
         dimmingVisualEffect: UIBlurEffect.Style? = nil,
+        prefersScalePresentingView: Bool = true,
         hapticsStyle: UIImpactFeedbackGenerator.FeedbackStyle? = nil,
         isInteractive: Bool = true,
         preferredPresentationBackgroundColor: Color? = nil
@@ -824,6 +848,7 @@ extension PresentationLinkTransition {
                     dimmingColor: dimmingColor,
                     dimmingVisualEffect: dimmingVisualEffect,
                     hapticsStyle: hapticsStyle,
+                    prefersScalePresentingView: prefersScalePresentingView,
                     options: .init(
                         isInteractive: isInteractive,
                         preferredPresentationBackgroundColor: preferredPresentationBackgroundColor

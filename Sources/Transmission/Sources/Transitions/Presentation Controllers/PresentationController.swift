@@ -67,7 +67,7 @@ open class PresentationController: DelegatedPresentationController {
         if transition.animation == .default, let preferredDefaultAnimation = preferredDefaultAnimation() {
             transition.animation = preferredDefaultAnimation
         }
-        transition.wantsInteractiveStart = wantsInteractiveTransition
+        transition.wantsInteractiveStart = transition.wantsInteractiveStart && wantsInteractiveTransition
         self.transition = transition
     }
 
@@ -81,6 +81,7 @@ open class PresentationController: DelegatedPresentationController {
         dimmingView.addGestureRecognizer(
             UITapGestureRecognizer(target: self, action: #selector(didSelectBackground))
         )
+        shadowView.isUserInteractionEnabled = false
         containerView?.addSubview(shadowView)
         if let presentedView {
             containerView?.addSubview(presentedView)

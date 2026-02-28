@@ -353,9 +353,11 @@ extension UIView {
 
 @available(iOS 15.0, *)
 extension PresentationLinkTransition.SheetTransitionOptions {
+
+    @MainActor @preconcurrency
     static func update(
         presentationController: SheetPresentationController,
-        animated isAnimated: Bool,
+        animation: Animation?,
         from oldValue: Self,
         to newValue: Self
     ) {
@@ -416,10 +418,10 @@ extension PresentationLinkTransition.SheetTransitionOptions {
                 }
                 #endif
             }
-            if isAnimated {
+            if let animation {
                 withCATransaction {
                     #if targetEnvironment(macCatalyst)
-                    UIView.animate(withDuration: 0.35) {
+                    UIView.animate(with: animation) {
                         applyConfiguration()
                     }
                     #else

@@ -31,7 +31,6 @@ open class ViewControllerTransition: UIPercentDrivenInteractiveTransition, UIVie
         self.isPresenting = isPresenting
         self.animation = animation
         super.init()
-        wantsInteractiveStart = false
     }
 
     // MARK: - UIViewControllerAnimatedTransitioning
@@ -58,12 +57,12 @@ open class ViewControllerTransition: UIPercentDrivenInteractiveTransition, UIVie
     ) {
         transitionDuration = transitionDuration(using: transitionContext)
         let animator = makeTransitionAnimatorIfNeeded(using: transitionContext)
-        let delay = animation?.delay ?? 0
         animatedStarted(transitionContext: transitionContext)
-        animator.startAnimation(afterDelay: delay)
 
-        if !transitionContext.isAnimated {
-            animator.stopAnimation(false)
+        if transitionContext.isAnimated {
+            let delay = animation?.delay ?? 0
+            animator.startAnimation(afterDelay: delay)
+        } else {
             animator.finishAnimation(at: .end)
         }
     }
@@ -83,23 +82,24 @@ open class ViewControllerTransition: UIPercentDrivenInteractiveTransition, UIVie
         using transitionContext: UIViewControllerContextTransitioning
     ) -> UIViewImplicitlyAnimating {
         let animator = makeTransitionAnimatorIfNeeded(using: transitionContext)
-        animatedStarted(transitionContext: transitionContext)
         return animator
     }
 
     open override func pause() {
         super.pause()
+        guard isInterruptible, animator?.isRunning == true else { return }
         animator?.pauseAnimation()
     }
 
     open override func update(_ percentComplete: CGFloat) {
         super.update(percentComplete)
+        guard isInterruptible, animator?.fractionComplete != percentComplete else { return }
         animator?.fractionComplete = percentComplete
     }
 
     open override func finish() {
         super.finish()
-        guard animator?.isRunning == false else { return }
+        guard isInterruptible, animator?.isRunning == false else { return }
         if animator?.fractionComplete == 1, animator?.state == .active {
             animator?.stopAnimation(false)
             animator?.finishAnimation(at: .end)
@@ -110,7 +110,7 @@ open class ViewControllerTransition: UIPercentDrivenInteractiveTransition, UIVie
 
     open override func cancel() {
         super.cancel()
-        guard animator?.isRunning == false else { return }
+        guard isInterruptible, animator?.isRunning == false else { return }
         if animator?.fractionComplete == 0, animator?.state == .active {
             animator?.stopAnimation(false)
             animator?.finishAnimation(at: .start)
@@ -142,6 +142,7 @@ open class ViewControllerTransition: UIPercentDrivenInteractiveTransition, UIVie
         // This must be set before configuring, as view layout can sometimes trigger re-entry
         self.animator = animator
         configureTransitionAnimator(using: transitionContext, animator: animator)
+        animatedStarted(transitionContext: transitionContext)
         return animator
     }
 

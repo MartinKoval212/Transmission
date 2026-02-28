@@ -53,7 +53,7 @@ public struct SlideDestinationLinkTransition: DestinationLinkTransitionRepresent
 
     /// The transition options for a slide transition.
     @frozen
-    public struct Options {
+    public struct Options: Sendable {
 
         public var initialOpacity: CGFloat
 
@@ -95,7 +95,6 @@ public struct SlideDestinationLinkTransition: DestinationLinkTransitionRepresent
             isPresenting: false,
             animation: context.transaction.animation
         )
-        transition.wantsInteractiveStart = true
         return transition
     }
 }

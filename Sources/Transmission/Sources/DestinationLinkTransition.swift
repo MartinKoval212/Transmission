@@ -9,10 +9,8 @@ import Engine
 
 /// The transition and presentation style for a ``DestinationLink`` or ``DestinationLinkModifier``.
 @available(iOS 14.0, *)
-@MainActor @preconcurrency
 public struct DestinationLinkTransition: Sendable {
 
-    @MainActor @preconcurrency
     enum Value: @unchecked Sendable {
         case `default`(Options)
         case zoom(ZoomOptions)
@@ -63,6 +61,9 @@ extension DestinationLinkTransition {
         public var prefersPanGesturePop: Bool
         /// When `true`, the destination will be dismissed when the presentation source is dismantled
         public var shouldAutomaticallyDismissDestination: Bool
+        /// When `true`, the `isPresented` binding is updated when dismissal begins, allowing
+        /// for view updates alongside the transition.
+        public var shouldTransitionIsPresentedAlongsideTransition: Bool
         public var preferredPresentationColorScheme: ColorScheme?
         public var preferredPresentationBackgroundColor: Color?
         public var isNavigationBarHidden: Bool?
@@ -71,8 +72,14 @@ extension DestinationLinkTransition {
 
         public init(
             isInteractive: Bool = true,
-            prefersPanGesturePop: Bool = false,
+            prefersPanGesturePop: Bool = {
+                if #available(iOS 26.0, *) {
+                    return true
+                }
+                return false
+            }(),
             shouldAutomaticallyDismissDestination: Bool = true,
+            shouldTransitionIsPresentedAlongsideTransition: Bool = true,
             preferredPresentationColorScheme: ColorScheme? = nil,
             preferredPresentationBackgroundColor: Color? = nil,
             isNavigationBarHidden: Bool? = nil,
@@ -82,6 +89,7 @@ extension DestinationLinkTransition {
             self.isInteractive = isInteractive
             self.prefersPanGesturePop = prefersPanGesturePop
             self.shouldAutomaticallyDismissDestination = shouldAutomaticallyDismissDestination
+            self.shouldTransitionIsPresentedAlongsideTransition = shouldTransitionIsPresentedAlongsideTransition
             self.preferredPresentationColorScheme = preferredPresentationColorScheme
             self.preferredPresentationBackgroundColor = preferredPresentationBackgroundColor
             self.isNavigationBarHidden = isNavigationBarHidden
@@ -101,23 +109,22 @@ extension DestinationLinkTransition {
 
     /// The transition options for a zoom transition.
     @frozen
-    @MainActor @preconcurrency
     public struct ZoomOptions {
         public var options: Options
-        public var dimmingColor: Color?
-        public var dimmingVisualEffect: UIBlurEffect.Style?
-        public var hapticsStyle: UIImpactFeedbackGenerator.FeedbackStyle?
+        public var zoomTransitionOptions: ZoomTransitionOptions
 
         public init(
             dimmingColor: Color? = nil,
             dimmingVisualEffect: UIBlurEffect.Style? = nil,
-            hapticsStyle: UIImpactFeedbackGenerator.FeedbackStyle? = nil,
+            prefersScalePresentingView: Bool = true,
             options: Options = .init()
         ) {
             self.options = options
-            self.dimmingColor = dimmingColor
-            self.dimmingVisualEffect = dimmingVisualEffect
-            self.hapticsStyle = hapticsStyle
+            self.zoomTransitionOptions = ZoomTransitionOptions(
+                dimmingColor: dimmingColor,
+                dimmingVisualEffect: dimmingVisualEffect,
+                prefersScalePresentingView: prefersScalePresentingView
+            )
         }
     }
 }
@@ -136,6 +143,7 @@ extension DestinationLinkTransition {
     public static func zoom(
         dimmingColor: Color? = nil,
         dimmingVisualEffect: UIBlurEffect.Style? = nil,
+        prefersScalePresentingView: Bool = true,
         hapticsStyle: UIImpactFeedbackGenerator.FeedbackStyle? = nil,
         isInteractive: Bool = true,
         preferredPresentationBackgroundColor: Color? = nil
@@ -145,6 +153,7 @@ extension DestinationLinkTransition {
                 .init(
                     dimmingColor: dimmingColor,
                     dimmingVisualEffect: dimmingVisualEffect,
+                    prefersScalePresentingView: prefersScalePresentingView,
                     options: .init(
                         isInteractive: isInteractive,
                         preferredPresentationBackgroundColor: preferredPresentationBackgroundColor,

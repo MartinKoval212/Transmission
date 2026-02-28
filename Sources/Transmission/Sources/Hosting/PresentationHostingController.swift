@@ -18,12 +18,14 @@ open class PresentationHostingController<
         }
     }
 
+    public weak var sourceViewController: AnyHostingController?
+
     private func getPresentationController() -> UIPresentationController? {
-        var parent = parent
-        while let next = parent?.parent {
-            parent = next
+        var ancestor = parent ?? self
+        while let parent = ancestor.parent {
+            ancestor = parent
         }
-        return (parent ?? self)._activePresentationController
+        return ancestor._activePresentationController
     }
 
     private var didRelayoutDuringPresentation = false
@@ -34,9 +36,15 @@ open class PresentationHostingController<
     }
 
     open override func viewDidLayoutSubviews() {
-        let isAnimated = !isBeingPresented && (transaction.map({ $0.isAnimated }) ?? transitionCoordinator?.isAnimated ?? true)
+        var isAnimated = transaction?.isAnimated ?? false
 
         super.viewDidLayoutSubviews()
+
+        if let sourceViewController, sourceViewController.shouldRenderForContentUpdate {
+            // Render so the modifier that controls the presentation of this hosting controller
+            // can run and update.
+            sourceViewController.render()
+        }
 
         guard view.superview != nil, !isBeingDismissed else {
             return
@@ -45,6 +53,8 @@ open class PresentationHostingController<
         if isBeingPresented, didRelayoutDuringPresentation, !tracksContentSize || (tracksContentSize && preferredContentSize != .zero) {
             return
         }
+
+        isAnimated = !isBeingPresented && (isAnimated || transitionCoordinator?.isAnimated ?? true)
 
         if tracksContentSize, #available(iOS 15.0, *),
             presentingViewController != nil,

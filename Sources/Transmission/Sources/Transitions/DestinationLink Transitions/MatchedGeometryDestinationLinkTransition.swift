@@ -31,6 +31,7 @@ extension DestinationLinkTransition {
         preferredFromCornerRadius: CornerRadiusOptions? = nil,
         prefersZoomEffect: Bool = false,
         initialOpacity: CGFloat = 1,
+        sourceViewFrameTransform: SourceViewFrameTransform? = nil,
         isInteractive: Bool = true,
         preferredPresentationBackgroundColor: Color? = nil
     ) -> DestinationLinkTransition {
@@ -38,10 +39,12 @@ extension DestinationLinkTransition {
             .init(
                 preferredFromCornerRadius: preferredFromCornerRadius,
                 prefersZoomEffect: prefersZoomEffect,
-                initialOpacity: initialOpacity
+                initialOpacity: initialOpacity,
+                sourceViewFrameTransform: sourceViewFrameTransform
             ),
             options: .init(
                 isInteractive: isInteractive,
+                prefersPanGesturePop: true,
                 preferredPresentationBackgroundColor: preferredPresentationBackgroundColor
             )
         )
@@ -53,6 +56,7 @@ extension DestinationLinkTransition {
     /// The matched geometry transition style.
     public static func matchedGeometryZoom(
         preferredFromCornerRadius: CornerRadiusOptions? = nil,
+        sourceViewFrameTransform: SourceViewFrameTransform? = nil,
         isInteractive: Bool = true,
         preferredPresentationBackgroundColor: Color? = nil
     ) -> DestinationLinkTransition {
@@ -60,6 +64,7 @@ extension DestinationLinkTransition {
             preferredFromCornerRadius: preferredFromCornerRadius,
             prefersZoomEffect: true,
             initialOpacity: 0,
+            sourceViewFrameTransform: sourceViewFrameTransform,
             isInteractive: isInteractive,
             preferredPresentationBackgroundColor: preferredPresentationBackgroundColor
         )
@@ -71,20 +76,23 @@ public struct MatchedGeometryDestinationLinkTransition: DestinationLinkTransitio
 
     /// The transition options for a matched geometry transition.
     @frozen
-    public struct Options {
+    public struct Options: @unchecked Sendable {
 
         public var preferredFromCornerRadius: CornerRadiusOptions?
         public var prefersZoomEffect: Bool
         public var initialOpacity: CGFloat
+        public var sourceViewFrameTransform: SourceViewFrameTransform?
 
         public init(
             preferredFromCornerRadius: CornerRadiusOptions? = nil,
             prefersZoomEffect: Bool = false,
-            initialOpacity: CGFloat = 1
+            initialOpacity: CGFloat = 1,
+            sourceViewFrameTransform: SourceViewFrameTransform? = nil
         ) {
             self.preferredFromCornerRadius = preferredFromCornerRadius
             self.prefersZoomEffect = prefersZoomEffect
             self.initialOpacity = initialOpacity
+            self.sourceViewFrameTransform = sourceViewFrameTransform
         }
     }
     public var options: Options
@@ -107,9 +115,11 @@ public struct MatchedGeometryDestinationLinkTransition: DestinationLinkTransitio
             preferredFromCornerRadius: options.preferredFromCornerRadius,
             preferredToCornerRadius: nil,
             initialOpacity: options.initialOpacity,
+            sourceViewFrameTransform: options.sourceViewFrameTransform,
             isPresenting: true,
             animation: context.transaction.animation
         )
+        transition.wantsInteractiveStart = false
         return transition
     }
 
@@ -127,10 +137,10 @@ public struct MatchedGeometryDestinationLinkTransition: DestinationLinkTransitio
             preferredFromCornerRadius: options.preferredFromCornerRadius,
             preferredToCornerRadius: nil,
             initialOpacity: options.initialOpacity,
+            sourceViewFrameTransform: options.sourceViewFrameTransform,
             isPresenting: false,
             animation: context.transaction.animation
         )
-        transition.wantsInteractiveStart = true
         return transition
     }
 }
@@ -138,9 +148,28 @@ public struct MatchedGeometryDestinationLinkTransition: DestinationLinkTransitio
 @available(iOS 14.0, *)
 open class MatchedGeometryNavigationControllerTransition: MatchedGeometryViewControllerTransition {
 
-    open override func update(_ percentComplete: CGFloat) {
-        let frictionPercentComplete = frictionCurve(percentComplete, distance: 1, coefficient: 0.75)
-        super.update(frictionPercentComplete)
+    var interactiveTransition: PushNavigationControllerTransition?
+
+    open override func configureTransitionAnimator(
+        using transitionContext: any UIViewControllerContextTransitioning,
+        animator: UIViewPropertyAnimator
+    ) {
+        if transitionContext.isInteractive {
+            interactiveTransition = PushNavigationControllerTransition(
+                isPresenting: isPresenting,
+                animation: animation
+            )
+            interactiveTransition?.configureTransitionAnimator(
+                using: transitionContext,
+                animator: animator
+            )
+        } else {
+            super.configureTransitionAnimator(using: transitionContext, animator: animator)
+        }
+    }
+
+    open override func animationEnded(_ transitionCompleted: Bool) {
+        interactiveTransition = nil
     }
 }
 
