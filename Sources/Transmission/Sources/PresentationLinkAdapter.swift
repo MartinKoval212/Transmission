@@ -1146,12 +1146,12 @@ final class PresentationLinkCoordinator<
         return presentationController
     }
 
+    #if !targetEnvironment(macCatalyst)
     func presentationController(
         _ presentationController: UIPresentationController,
         willPresentWithAdaptiveStyle style: UIModalPresentationStyle,
         transitionCoordinator: UIViewControllerTransitionCoordinator?
     ) {
-        #if !targetEnvironment(macCatalyst)
         if #available(iOS 15.0, *) {
             if let sheetPresentationController = presentationController as? SheetPresentationController {
                 transitionCoordinator?.animate(alongsideTransition: { [weak self] _ in
@@ -1167,11 +1167,12 @@ final class PresentationLinkCoordinator<
                 })
             }
         }
-        #endif
     }
+    #endif
 
     // MARK: - UISheetPresentationControllerDelegate
 
+    #if !targetEnvironment(macCatalyst)
     @available(iOS 15.0, *)
     @available(macOS, unavailable)
     @available(tvOS, unavailable)
@@ -1225,6 +1226,7 @@ final class PresentationLinkCoordinator<
             }
         }
     }
+    #endif
 
     // MARK: - Zoom Transition
 
